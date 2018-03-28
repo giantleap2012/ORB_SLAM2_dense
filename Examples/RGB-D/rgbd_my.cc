@@ -31,38 +31,71 @@
 
 using namespace std;
 
+
 void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageFilenamesRGB,
                 vector<string> &vstrImageFilenamesD, vector<double> &vTimestamps);
 
 int main(int argc, char **argv)
 {
-    if(argc != 6)
+    if(argc != 5)
     {
-        cerr << endl << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence start_index end_index" << endl;
+        cerr << endl << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence association_file" << endl;
         return 1;
     }
+
+    // Retrieve paths to images
+    vector<string> vstrImageFilenamesRGB;
+    vector<string> vstrImageFilenamesD;
+    vector<double> vTimestamps;
+    string strAssociationFilename = string(argv[4]);
+    LoadImages(strAssociationFilename, vstrImageFilenamesRGB, vstrImageFilenamesD, vTimestamps);
+
+    // Check consistency in the number of images and depthmaps
+    int nImages = vstrImageFilenamesRGB.size();
+    if(vstrImageFilenamesRGB.empty())
+    {
+        cerr << endl << "No images found in provided path." << endl;
+        return 1;
+    }
+    else if(vstrImageFilenamesD.size()!=vstrImageFilenamesRGB.size())
+    {
+        cerr << endl << "Different number of images for rgb and depth." << endl;
+        return 1;
+    }
+
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::RGBD,true);
 
 
-    int     start_index = atoi( argv[4] );
-    int     end_index = atoi( argv[5] );
-    cout << endl << "-------" << endl;
-    cout << "Start processing sequence ..." << endl;
+    // int     start_index = atoi( argv[4] );
+    // int     end_index = atoi( argv[5] );
+    // cout << endl << "-------" << endl;
+    // cout << "Start processing sequence ..." << endl;
 
     // Main loop
     cv::Mat imRGB, imD;
-    for ( int index = start_index; index < end_index; index ++ )
+    for(int ni=0; ni<nImages; ni++)
     {
-        boost::format fmt ("%s/rgb_index/%d.png");
+        // Read image and depthmap from file
+        imRGB = cv::imread(string(argv[3])+"/"+vstrImageFilenamesRGB[ni],CV_LOAD_IMAGE_UNCHANGED);
+        imD = cv::imread(string(argv[3])+"/"+vstrImageFilenamesD[ni],CV_LOAD_IMAGE_UNCHANGED);
+        double tframe = vTimestamps[ni];
 
-        imRGB = cv::imread( (fmt%argv[3]%index).str(), CV_LOAD_IMAGE_UNCHANGED);
-        fmt = boost::format("%s/dep_index/%d.png");
+        if(imRGB.empty())
+        {
+            cerr << endl << "Failed to load image at: "
+                 << string(argv[3]) << "/" << vstrImageFilenamesRGB[ni] << endl;
+            return 1;
+        }
 
-        imD = cv::imread( (fmt%argv[3]%index).str(), CV_LOAD_IMAGE_UNCHANGED);
-        SLAM.TrackRGBD( imRGB, imD, index  );
+        // boost::format fmt ("%s/rgb_index/%d.png");
 
+        // imRGB = cv::imread( (fmt%argv[3]%index).str(), CV_LOAD_IMAGE_UNCHANGED);
+        // fmt = boost::format("%s/dep_index/%d.png");
+
+        // imD = cv::imread( (fmt%argv[3]%index).str(), CV_LOAD_IMAGE_UNCHANGED);
+        SLAM.TrackRGBD( imRGB, imD, tframe);
         ;
     }
     // Stop all threads
@@ -72,5 +105,33 @@ int main(int argc, char **argv)
 
 
     return 0;
+}
+
+
+void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageFilenamesRGB,
+                vector<string> &vstrImageFilenamesD, vector<double> &vTimestamps)
+{
+    ifstream fAssociation;
+    fAssociation.open(strAssociationFilename.c_str());
+    while(!fAssociation.eof())
+    {
+        string s;
+        getline(fAssociation,s);
+        if(!s.empty())
+        {
+            stringstream ss;
+            ss << s;
+            double t;
+            string sRGB, sD;
+            ss >> t;
+            vTimestamps.push_back(t);
+            ss >> sRGB;
+            vstrImageFilenamesRGB.push_back(sRGB);
+            ss >> t;
+            ss >> sD;
+            vstrImageFilenamesD.push_back(sD);
+
+        }
+    }
 }
 

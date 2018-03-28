@@ -29,11 +29,18 @@ endif()
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
 #find_package(OpenCV 2.4.11 REQUIRED)
-find_package(OpenCV 3.2 REQUIRED)
+#find_package(OpenCV 3.2 REQUIRED)
+
+find_package(OpenCV 3.0 REQUIRED
+NO_MODULE # should be optional, tells CMake to use config mode
+PATHS /usr/local # look here
+NO_DEFAULT_PATH)
+
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package( G2O REQUIRED )
 find_package( PCL REQUIRED )
+
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
